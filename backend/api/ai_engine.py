@@ -69,7 +69,10 @@ async def ai_chat(
 
     messages = [{"role": m.role, "content": m.content} for m in req.messages]
 
-    if settings.DEMO_MODE:
+    # Use canned demo responses only when there's no real Anthropic key configured.
+    # If a real key is set (even with DEMO_MODE=true), prefer genuine AI — it gives
+    # full Income Tax Act / GST Act / TDS Act / DTAA coverage instead of ~9 templates.
+    if settings.DEMO_MODE and not settings.ANTHROPIC_API_KEY:
         from demo.mock_data import get_mock_ai_response
         last_user_message = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
         response_text = get_mock_ai_response(last_user_message)

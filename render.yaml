@@ -27,18 +27,20 @@ services:
         generateValue: true
       - key: VAULT_SALT
         value: taxcompliance-demo-salt-2025
+      # sync: false on these means Render leaves whatever you set manually in
+      # the dashboard alone — git pushes won't ever overwrite/wipe these keys.
       - key: ANTHROPIC_API_KEY
-        value: ""
+        sync: false
       - key: AWS_ACCESS_KEY_ID
-        value: ""
+        sync: false
       - key: AWS_SECRET_ACCESS_KEY
-        value: ""
+        sync: false
       - key: RAZORPAY_KEY_ID
-        value: ""
+        sync: false
       - key: RAZORPAY_KEY_SECRET
-        value: ""
+        sync: false
       - key: RAZORPAY_WEBHOOK_SECRET
-        value: ""
+        sync: false
       - key: DEMO_USER_EMAIL
         value: demo@taxcomplianceai.in
       - key: DEMO_USER_PASSWORD
@@ -53,13 +55,13 @@ services:
     envVars:
       - key: VITE_DEMO_MODE
         value: "true"
-      # IMPORTANT: after the backend service deploys, copy its URL
-      # (shown in the Render dashboard, looks like
-      # https://taxcompliance-demo-backend-xxxx.onrender.com) and paste it
-      # here, replacing the placeholder. Then trigger a redeploy of this
-      # frontend service so the build picks up the real URL.
+      # sync: false — Render assigns the actual backend URL at deploy time
+      # (it may get a random suffix if the exact name is taken), so this is
+      # set once manually in the dashboard rather than tracked here. This
+      # also means a future `git push` can never silently revert it back to
+      # a wrong/placeholder value.
       - key: VITE_API_URL
-        value: https://taxcompliance-demo-backend.onrender.com
+        sync: false
     routes:
       - type: rewrite
         source: /*
