@@ -1,0 +1,64 @@
+services:
+  - type: web
+    name: taxcompliance-demo-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.demo.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DEMO_MODE
+        value: "true"
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        value: sqlite+aiosqlite:///./demo.db
+      - key: REDIS_URL
+        value: redis://localhost:6379/0
+      - key: CELERY_BROKER_URL
+        value: redis://localhost:6379/1
+      - key: CELERY_RESULT_BACKEND
+        value: redis://localhost:6379/2
+      - key: SECRET_KEY
+        generateValue: true
+      - key: VAULT_MASTER_KEY
+        generateValue: true
+      - key: VAULT_SALT
+        value: taxcompliance-demo-salt-2025
+      - key: ANTHROPIC_API_KEY
+        value: ""
+      - key: AWS_ACCESS_KEY_ID
+        value: ""
+      - key: AWS_SECRET_ACCESS_KEY
+        value: ""
+      - key: RAZORPAY_KEY_ID
+        value: ""
+      - key: RAZORPAY_KEY_SECRET
+        value: ""
+      - key: RAZORPAY_WEBHOOK_SECRET
+        value: ""
+      - key: DEMO_USER_EMAIL
+        value: demo@taxcomplianceai.in
+      - key: DEMO_USER_PASSWORD
+        value: demo123
+
+  - type: web
+    name: taxcompliance-demo-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install --legacy-peer-deps && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_DEMO_MODE
+        value: "true"
+      # IMPORTANT: after the backend service deploys, copy its URL
+      # (shown in the Render dashboard, looks like
+      # https://taxcompliance-demo-backend-xxxx.onrender.com) and paste it
+      # here, replacing the placeholder. Then trigger a redeploy of this
+      # frontend service so the build picks up the real URL.
+      - key: VITE_API_URL
+        value: https://taxcompliance-demo-backend.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

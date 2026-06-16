@@ -1,0 +1,21 @@
+# Python
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.db
+backend/.env
+*.pyc
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
+_*.ps1
+
+# Demo runtime artifacts
+backend/demo.db

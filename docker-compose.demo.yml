@@ -1,0 +1,107 @@
+version: '3.9'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TaxCompliance AI — DEMO / SANDBOX compose
+#
+# Usage:
+#   docker compose -f docker-compose.demo.yml up --build
+#
+# What's different from production:
+#   - DEMO_MODE=true → auto-seeds 5 demo clients on startup
+#   - VITE_DEMO_MODE=true → shows orange demo banner + Try Demo button
+#   - No Playwright browser needed (portal fetch is mocked)
+#   - No Anthropic key needed (AI responses are canned)
+#   - No Razorpay keys needed (payments are simulated)
+#   - Celery worker is skipped (portal tasks are synchronous mocks)
+#   - Swagger UI always visible at /api/docs
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  # ─── PostgreSQL ──────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: taxdemo-db
+    environment:
+      POSTGRES_DB: taxdb
+      POSTGRES_USER: taxuser
+      POSTGRES_PASSWORD: demo_db_pass
+    volumes:
+      - pgdata_demo:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taxuser -d taxdb"]
+      interval: 8s
+      timeout: 5s
+      retries: 8
+
+  # ─── Redis ───────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: taxdemo-redis
+    command: redis-server --requirepass demo_redis_pass
+    volumes:
+      - redisdata_demo:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "demo_redis_pass", "ping"]
+      interval: 8s
+      timeout: 3s
+      retries: 5
+
+  # ─── Backend ─────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: taxdemo-api
+    env_file: .env.demo
+    environment:
+      # Override URLs to use Docker service names
+      DATABASE_URL: postgresql+asyncpg://taxuser:demo_db_pass@db:5432/taxdb
+      REDIS_URL: redis://:demo_redis_pass@redis:6379/0
+      CELERY_BROKER_URL: redis://:demo_redis_pass@redis:6379/1
+      CELERY_RESULT_BACKEND: redis://:demo_redis_pass@redis:6379/2
+      DEMO_MODE: "true"
+      DEBUG: "true"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    # No Playwright needed in demo — portal calls are mocked
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ─── Frontend ────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:8000
+        VITE_DEMO_MODE: "true"
+    container_name: taxdemo-web
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: http://localhost:8000
+      VITE_DEMO_MODE: "true"
+
+  # ─── Nginx ───────────────────────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: taxdemo-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+      - frontend
+
+volumes:
+  pgdata_demo:
+  redisdata_demo:
