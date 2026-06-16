@@ -26,6 +26,29 @@ function fmt(n: number) {
   return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(n)
 }
 
+function Section({
+  id, openSection, onToggle, children,
+}: {
+  id: string
+  openSection: string | null
+  onToggle: (id: string) => void
+  children: React.ReactNode
+}) {
+  const open = openSection === id
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <button
+        className="w-full flex items-center justify-between px-5 py-4 text-left"
+        onClick={() => onToggle(id)}
+      >
+        <span className="font-semibold text-gray-800">{SECTION_LABELS[id]}</span>
+        {open ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+      </button>
+      {open && <div className="px-5 pb-5 border-t border-gray-100">{children}</div>}
+    </div>
+  )
+}
+
 export default function IncomeTaxPage() {
   const { clientId: routeClientId } = useParams<{ clientId: string }>()
   const [clientId, setClientId] = useState(routeClientId || '')
@@ -83,20 +106,8 @@ export default function IncomeTaxPage() {
     )
   }
 
-  function Section({ id, children }: { id: string; children: React.ReactNode }) {
-    const open = openSection === id
-    return (
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <button
-          className="w-full flex items-center justify-between px-5 py-4 text-left"
-          onClick={() => setOpenSection(open ? null : id)}
-        >
-          <span className="font-semibold text-gray-800">{SECTION_LABELS[id]}</span>
-          {open ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
-        </button>
-        {open && <div className="px-5 pb-5 border-t border-gray-100">{children}</div>}
-      </div>
-    )
+  function handleToggleSection(id: string) {
+    setOpenSection(prev => (prev === id ? null : id))
   }
 
   return (
@@ -166,7 +177,7 @@ export default function IncomeTaxPage() {
           </div>
 
           {/* Accordion sections */}
-          <Section id="salary">
+          <Section id="salary" openSection={openSection} onToggle={handleToggleSection}>
             <div className="pt-4 space-y-3">
               {toggle('is_salaried', 'Salaried Employee')}
               {num('gross_salary', 'Gross Salary (₹)')}
@@ -180,7 +191,7 @@ export default function IncomeTaxPage() {
             </div>
           </Section>
 
-          <Section id="house_property">
+          <Section id="house_property" openSection={openSection} onToggle={handleToggleSection}>
             <div className="pt-4 space-y-3">
               {toggle('is_self_occupied', 'Self-Occupied Property')}
               {num('annual_letable_value', 'Annual Letable Value / Rent Received (₹)')}
@@ -189,7 +200,7 @@ export default function IncomeTaxPage() {
             </div>
           </Section>
 
-          <Section id="capital_gains">
+          <Section id="capital_gains" openSection={openSection} onToggle={handleToggleSection}>
             <div className="pt-4 space-y-3">
               {num('stcg_111a', 'STCG on Equity/MF — Sec 111A (₹) @ 15%')}
               {num('stcg_other', 'STCG — Other Assets (₹) @ slab')}
@@ -198,7 +209,7 @@ export default function IncomeTaxPage() {
             </div>
           </Section>
 
-          <Section id="business">
+          <Section id="business" openSection={openSection} onToggle={handleToggleSection}>
             <div className="pt-4 space-y-3">
               {toggle('is_presumptive', 'Presumptive Taxation (44AD/44ADA/44AE)')}
               {form.is_presumptive ? (
@@ -223,7 +234,7 @@ export default function IncomeTaxPage() {
             </div>
           </Section>
 
-          <Section id="other_sources">
+          <Section id="other_sources" openSection={openSection} onToggle={handleToggleSection}>
             <div className="pt-4 space-y-3">
               {num('interest_savings', 'Savings Account Interest (₹)')}
               {num('interest_fd', 'FD / Other Interest (₹)')}
@@ -233,7 +244,7 @@ export default function IncomeTaxPage() {
             </div>
           </Section>
 
-          <Section id="deductions">
+          <Section id="deductions" openSection={openSection} onToggle={handleToggleSection}>
             <div className="pt-4 space-y-4">
               <p className="text-xs font-semibold text-gray-400 uppercase">80C Investments (Max ₹1,50,000)</p>
               <div className="grid grid-cols-2 gap-3">
@@ -286,7 +297,7 @@ export default function IncomeTaxPage() {
             </div>
           </Section>
 
-          <Section id="tax_payments">
+          <Section id="tax_payments" openSection={openSection} onToggle={handleToggleSection}>
             <div className="pt-4 space-y-3">
               <p className="text-xs text-gray-500 font-medium">Advance Tax Paid</p>
               {num('advance_tax_q1', 'Q1 — June (₹)')}
