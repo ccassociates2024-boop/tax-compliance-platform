@@ -13,14 +13,20 @@ Also handles:
 - Auto-detect HSN code from description (AI-powered)
 - Tax computation from invoice value if taxes not provided
 """
+from __future__ import annotations
 import io
 import re
 import logging
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from dataclasses import dataclass
 
-import pandas as pd
-import openpyxl
+# NOTE: pandas/openpyxl are imported lazily inside the functions that use
+# them. They're heavy (and pandas needs a compatible prebuilt wheel for the
+# host's Python version) so importing them at module load time would crash
+# app boot on hosts where they fail to install — not needed for demo mode.
+if TYPE_CHECKING:
+    import pandas as pd
+
 from decimal import Decimal, ROUND_HALF_UP
 
 from .invoice_template import Invoice, InvoiceLine, TaxComputer
@@ -109,6 +115,8 @@ class ExcelParser:
         """
         Parse uploaded file. Returns invoices + errors.
         """
+        import pandas as pd
+
         ext = filename.lower().rsplit(".", 1)[-1]
         try:
             if ext in ("xlsx", "xls"):
@@ -395,6 +403,8 @@ def generate_excel_template(supplier_gstin: str) -> bytes:
     Generate the standard TaxCompliance Excel template for invoice upload.
     Returns bytes of .xlsx file.
     """
+    import openpyxl
+
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Invoices"
