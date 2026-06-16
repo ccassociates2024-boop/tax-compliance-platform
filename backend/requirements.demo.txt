@@ -37,5 +37,5 @@ razorpay==1.4.2
 # pandas==2.2.2
 # openpyxl==3.1.2
 
-# AI (needed for type checks, actual calls are mocked in demo)
-anthropic==0.28.0
+# AI — Google Gemini (free tier). Falls back to canned responses if no key is set.
+google-generativeai==0.8.3

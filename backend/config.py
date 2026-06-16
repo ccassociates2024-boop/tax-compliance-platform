@@ -24,9 +24,9 @@ class Settings(BaseSettings):
     DEMO_USER_EMAIL: str = "demo@taxcomplianceai.in"
     DEMO_USER_PASSWORD: str = "demo123"
 
-    # AI
-    ANTHROPIC_API_KEY: str = ""      # Optional in demo mode
-    AI_MODEL: str = "claude-sonnet-4-6"
+    # AI — Google Gemini (free tier). Get a key at https://aistudio.google.com/apikey
+    GEMINI_API_KEY: str = ""      # Optional in demo mode — falls back to canned responses
+    AI_MODEL: str = "gemini-2.0-flash"
 
     # AWS (Mumbai region for Indian data residency)
     AWS_ACCESS_KEY_ID: str = ""      # Optional in demo mode

@@ -12,7 +12,7 @@ Open `.env` and fill in:
 # Must change these 3:
 SECRET_KEY=<run: python -c "import secrets; print(secrets.token_hex(32))">
 VAULT_MASTER_KEY=<run: python -c "import secrets; print(secrets.token_hex(32))">
-ANTHROPIC_API_KEY=sk-ant-...        # From console.anthropic.com
+GEMINI_API_KEY=AIza...               # Free tier, from aistudio.google.com/apikey
 
 # These can stay as-is for local dev:
 DB_PASSWORD=strongpassword123

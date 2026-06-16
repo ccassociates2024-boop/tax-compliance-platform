@@ -29,7 +29,10 @@ services:
         value: taxcompliance-demo-salt-2025
       # sync: false on these means Render leaves whatever you set manually in
       # the dashboard alone — git pushes won't ever overwrite/wipe these keys.
-      - key: ANTHROPIC_API_KEY
+      # NOTE: sync:false vars are NOT auto-created by the blueprint — you must
+      # add GEMINI_API_KEY yourself in the dashboard (Environment tab) the
+      # first time, after getting a key from https://aistudio.google.com/apikey
+      - key: GEMINI_API_KEY
         sync: false
       - key: AWS_ACCESS_KEY_ID
         sync: false

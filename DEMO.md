@@ -166,7 +166,7 @@ Update `nginx.conf` with the domain name. Done.
 When you're ready to go live:
 
 1. Copy `.env.example` → `.env`
-2. Fill in real keys: `SECRET_KEY`, `VAULT_MASTER_KEY`, `ANTHROPIC_API_KEY`
+2. Fill in real keys: `SECRET_KEY`, `VAULT_MASTER_KEY`, `GEMINI_API_KEY`
 3. Add Razorpay keys for payments
 4. Run: `docker compose up --build` (uses production compose, no demo mode)
 

@@ -1,10 +1,10 @@
 """
-AI Tax Assistant — Claude-powered tax analysis engine.
+AI Tax Assistant — Gemini-powered tax analysis engine.
 Handles: ITR analysis, GST working, TDS compliance, deduction optimization.
 """
 import logging
 from typing import AsyncIterator, Optional
-import anthropic
+import google.generativeai as genai
 
 from config import get_settings
 from .prompts import (
@@ -22,16 +22,34 @@ from .prompts import (
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
+genai.configure(api_key=settings.GEMINI_API_KEY)
+
+
+def _to_gemini_history(messages: list[dict]) -> tuple[list[dict], str]:
+    """Convert OpenAI/Anthropic-style messages (user/assistant) into Gemini's
+    history format (user/model) plus the final user turn to send."""
+    history = []
+    for m in messages[:-1]:
+        role = "model" if m["role"] == "assistant" else "user"
+        history.append({"role": role, "parts": [m["content"]]})
+    last_message = messages[-1]["content"] if messages else ""
+    return history, last_message
+
 
 class TaxAIAssistant:
     """
-    Core AI engine. Uses Claude with streaming for real-time responses.
-    All calls use prompt caching to minimize API costs for repeated analyses.
+    Core AI engine. Uses Gemini with streaming for real-time responses.
     """
 
-    def __init__(self):
-        self.client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
-        self.model = settings.AI_MODEL
+    def __init__(self, system_instruction: Optional[str] = None):
+        self.model_name = settings.AI_MODEL
+        self._system_instruction = system_instruction or SYSTEM_PROMPT_TAX_ASSISTANT
+
+    def _model(self, system_instruction: Optional[str] = None) -> "genai.GenerativeModel":
+        return genai.GenerativeModel(
+            model_name=self.model_name,
+            system_instruction=system_instruction or self._system_instruction,
+        )
 
     async def analyze_itr(self, client_data: dict, fetched_data: dict) -> AsyncIterator[str]:
         """
@@ -39,21 +57,11 @@ class TaxAIAssistant:
         Streams response for real-time display in frontend.
         """
         prompt = build_itr_prompt(client_data, fetched_data)
-
-        async with self.client.messages.stream(
-            model=self.model,
-            max_tokens=4096,
-            system=[
-                {
-                    "type": "text",
-                    "text": SYSTEM_PROMPT_TAX_ASSISTANT,
-                    "cache_control": {"type": "ephemeral"},  # Cache system prompt
-                }
-            ],
-            messages=[{"role": "user", "content": prompt}],
-        ) as stream:
-            async for text in stream.text_stream:
-                yield text
+        model = self._model()
+        response = await model.generate_content_async(prompt, stream=True)
+        async for chunk in response:
+            if chunk.text:
+                yield chunk.text
 
     async def detect_mismatches(self, pan: str, financial_year: str, ais_data: dict,
                                  form26as_data: dict, tds_data: dict) -> str:
@@ -70,15 +78,11 @@ class TaxAIAssistant:
     async def prepare_gst_working(self, client_data: dict, gst_data: dict) -> AsyncIterator[str]:
         """Prepare complete GSTR-3B working with ITC reconciliation."""
         prompt = build_gst_prompt(client_data, gst_data)
-        async with self.client.messages.stream(
-            model=self.model,
-            max_tokens=4096,
-            system=[{"type": "text", "text": SYSTEM_PROMPT_TAX_ASSISTANT,
-                     "cache_control": {"type": "ephemeral"}}],
-            messages=[{"role": "user", "content": prompt}],
-        ) as stream:
-            async for text in stream.text_stream:
-                yield text
+        model = self._model()
+        response = await model.generate_content_async(prompt, stream=True)
+        async for chunk in response:
+            if chunk.text:
+                yield chunk.text
 
     async def generate_hsn_summary(self, business_name: str, period: str,
                                     invoice_data: list[dict]) -> str:
@@ -94,7 +98,6 @@ class TaxAIAssistant:
                                     deduction_data: dict, challan_data: dict,
                                     defaults_data: dict) -> str:
         """Full TDS compliance review with default computation."""
-        from datetime import date
         due_dates = {"Q1": "31-Jul", "Q2": "31-Oct", "Q3": "31-Jan", "Q4": "31-May"}
         due_date = f"{due_dates.get(f'Q{quarter}', 'N/A')}-{financial_year.split('-')[1]}"
 
@@ -146,27 +149,18 @@ class TaxAIAssistant:
         messages: [{"role": "user/assistant", "content": "..."}]
         client_context: Optional client data to inject as context.
         """
-        system_parts = [
-            {
-                "type": "text",
-                "text": SYSTEM_PROMPT_TAX_ASSISTANT,
-                "cache_control": {"type": "ephemeral"},
-            }
-        ]
+        system_instruction = self._system_instruction
         if client_context:
-            system_parts.append({
-                "type": "text",
-                "text": f"## Current Client Context\n{_format_data(client_context)}",
-            })
+            system_instruction += f"\n\n## Current Client Context\n{_format_data(client_context)}"
 
-        async with self.client.messages.stream(
-            model=self.model,
-            max_tokens=2048,
-            system=system_parts,
-            messages=messages,
-        ) as stream:
-            async for text in stream.text_stream:
-                yield text
+        model = self._model(system_instruction=system_instruction)
+        history, last_message = _to_gemini_history(messages)
+
+        chat = model.start_chat(history=history)
+        response = await chat.send_message_async(last_message, stream=True)
+        async for chunk in response:
+            if chunk.text:
+                yield chunk.text
 
     async def compute_audit_risk_score(self, client_data: dict, itr_data: dict,
                                         ais_data: dict) -> dict:
@@ -217,14 +211,9 @@ Common risk factors to check:
 
     async def _complete(self, prompt: str, max_tokens: int = 4096) -> str:
         """Non-streaming completion."""
-        response = await self.client.messages.create(
-            model=self.model,
-            max_tokens=max_tokens,
-            system=[{
-                "type": "text",
-                "text": SYSTEM_PROMPT_TAX_ASSISTANT,
-                "cache_control": {"type": "ephemeral"},
-            }],
-            messages=[{"role": "user", "content": prompt}],
+        model = self._model()
+        response = await model.generate_content_async(
+            prompt,
+            generation_config=genai.types.GenerationConfig(max_output_tokens=max_tokens),
         )
-        return response.content[0].text
+        return response.text
