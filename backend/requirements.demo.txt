@@ -31,9 +31,11 @@ pytz==2024.1
 setuptools<81
 razorpay==1.4.2
 
-# Excel parsing (used by gst/excel_parser.py — pure-Python, no system deps)
-pandas==2.2.2
-openpyxl==3.1.2
+# Excel parsing (used only by gst/excel_parser.py's optional file-upload
+# feature — imported lazily, so omitting them here doesn't break demo mode
+# core flows. Uncomment if you need to test real Excel/CSV invoice upload:
+# pandas==2.2.2
+# openpyxl==3.1.2
 
 # AI (needed for type checks, actual calls are mocked in demo)
 anthropic==0.28.0
