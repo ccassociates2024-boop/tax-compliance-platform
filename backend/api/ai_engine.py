@@ -1,6 +1,7 @@
 """
 AI Engine API — streaming AI analysis, chat, risk scoring, deduction optimizer.
 """
+import logging
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +18,7 @@ from ai.tax_assistant import TaxAIAssistant
 
 router = APIRouter()
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 class ChatMessage(BaseModel):
@@ -69,25 +71,38 @@ async def ai_chat(
 
     messages = [{"role": m.role, "content": m.content} for m in req.messages]
 
-    # Use canned demo responses only when there's no real Gemini key configured.
-    # If a real key is set (even with DEMO_MODE=true), prefer genuine AI — it gives
-    # full Income Tax Act / GST Act / TDS Act / DTAA coverage instead of ~9 templates.
-    if settings.DEMO_MODE and not settings.GEMINI_API_KEY:
-        from demo.mock_data import get_mock_ai_response
-        last_user_message = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
+    from demo.mock_data import get_mock_ai_response
+    last_user_message = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
+
+    def _canned_fallback_chunks():
         response_text = get_mock_ai_response(last_user_message)
+        chunk_size = 12
+        for i in range(0, len(response_text), chunk_size):
+            yield response_text[i : i + chunk_size]
 
-        async def demo_stream():
-            chunk_size = 12
-            for i in range(0, len(response_text), chunk_size):
-                yield response_text[i : i + chunk_size]
-
-        return StreamingResponse(demo_stream(), media_type="text/plain")
+    # Prefer genuine AI whenever a key is configured — it gives full Income
+    # Tax Act / GST Act / TDS Act / DTAA coverage instead of ~9 templates.
+    # If the real call fails for ANY reason (invalid/expired key, rate limit,
+    # network blip) before producing output, fall back to the canned demo
+    # response instead of returning an empty/broken stream to the user.
+    use_real_ai = bool(settings.GEMINI_API_KEY)
 
     async def stream():
-        ai = TaxAIAssistant()
-        async for chunk in ai.chat(messages, client_context):
-            yield chunk
+        if use_real_ai:
+            try:
+                ai = TaxAIAssistant()
+                got_any_output = False
+                async for chunk in ai.chat(messages, client_context):
+                    got_any_output = True
+                    yield chunk
+                if got_any_output:
+                    return
+                logger.warning("Gemini call produced no output — falling back to canned response")
+            except Exception as e:
+                logger.error(f"Gemini AI call failed, falling back to canned response: {e}")
+
+        for piece in _canned_fallback_chunks():
+            yield piece
 
     return StreamingResponse(stream(), media_type="text/plain")
 

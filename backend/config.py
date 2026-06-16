@@ -25,8 +25,10 @@ class Settings(BaseSettings):
     DEMO_USER_PASSWORD: str = "demo123"
 
     # AI — Google Gemini (free tier). Get a key at https://aistudio.google.com/apikey
+    # gemini-flash-lite-latest tracks Google's current lite model and has had
+    # working free-tier quota where some other model names returned 429s.
     GEMINI_API_KEY: str = ""      # Optional in demo mode — falls back to canned responses
-    AI_MODEL: str = "gemini-2.0-flash"
+    AI_MODEL: str = "gemini-flash-lite-latest"
 
     # AWS (Mumbai region for Indian data residency)
     AWS_ACCESS_KEY_ID: str = ""      # Optional in demo mode
